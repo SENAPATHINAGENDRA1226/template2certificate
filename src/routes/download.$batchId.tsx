@@ -298,7 +298,7 @@ function DownloadPortalPage() {
                     download={selectedRecipient.filename}
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    Download PNG (High-Res)
+                    Download Certificate
                   </a>
                 </Button>
               </CardFooter>

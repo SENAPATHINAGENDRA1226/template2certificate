@@ -9,6 +9,9 @@ export const Route = createFileRoute("/api/upload")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          const contentLength = request.headers.get("content-length");
+          console.log(`[API Upload] Incoming upload payload size: ${contentLength ? (parseInt(contentLength) / (1024 * 1024)).toFixed(2) : "unknown"} MB`);
+
           const formData = await request.formData();
           const zipFile = formData.get("zip") as File | null;
           const metadataStr = formData.get("metadata") as string | null;

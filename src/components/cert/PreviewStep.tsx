@@ -147,7 +147,8 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
         (current, total) => {
           setExportCurrent(current);
           setExportProgress(Math.round((current / total) * 100));
-        }
+        },
+        "jpeg"
       );
 
       const seen = new Map<string, number>();
@@ -159,7 +160,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
         seen.set(rawFilename, n + 1);
         return {
           row,
-          filename: `${filename}.png`,
+          filename: `${filename}.jpg`,
         };
       });
 

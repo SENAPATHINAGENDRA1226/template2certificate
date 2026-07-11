@@ -62,7 +62,8 @@ export async function generateZipBlob(
   placeholders: Placeholder[],
   mapping: Record<string, string>,
   filenameColumn: string,
-  onProgress: (current: number, total: number) => void
+  onProgress: (current: number, total: number) => void,
+  format: "png" | "jpeg" = "png"
 ): Promise<Blob> {
   const zip = new JSZip();
   const seen = new Map<string, number>();
@@ -85,9 +86,15 @@ export async function generateZipBlob(
     if (n > 0) filename = `${filename}_${n + 1}`;
     seen.set(rawFilename, n + 1);
 
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
+    const extension = format === "jpeg" ? "jpg" : "png";
+    const quality = format === "jpeg" ? 0.85 : undefined;
+
+    const blob = await new Promise<Blob | null>((resolve) => 
+      canvas.toBlob(resolve, mimeType, quality)
+    );
     if (blob) {
-      zip.file(`${filename}.png`, blob);
+      zip.file(`${filename}.${extension}`, blob);
     }
 
     onProgress(i + 1, total);
