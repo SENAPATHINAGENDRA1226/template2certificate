@@ -151,7 +151,7 @@ function DownloadPortalPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
       <Toaster richColors position="top-center" />
-      
+
       {/* Header */}
       <header className="border-b border-slate-800/60 bg-slate-950/40 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -208,11 +208,10 @@ function DownloadPortalPage() {
                       <button
                         key={i}
                         onClick={() => handleSelectRecipient(recipient)}
-                        className={`w-full text-left px-3 py-2.5 rounded-md transition-all flex items-center justify-between text-sm ${
-                          isSelected
+                        className={`w-full text-left px-3 py-2.5 rounded-md transition-all flex items-center justify-between text-sm ${isSelected
                             ? "bg-primary/20 text-white font-medium shadow-inner"
                             : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
-                        }`}
+                          }`}
                       >
                         <div className="truncate pr-2">
                           <p className="font-medium truncate">{displayName}</p>
@@ -220,7 +219,7 @@ function DownloadPortalPage() {
                             {recipient.row.email || Object.values(recipient.row)[1] || ""}
                           </p>
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
+                        <ExternalLink className="h-3.5 w-3.5 opacity-60 shrink-0" />
                       </button>
                     );
                   })
@@ -268,14 +267,14 @@ function DownloadPortalPage() {
                   </Button>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-900/20 relative min-h-[300px]">
                 {imageLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs z-10">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 )}
-                
+
                 <img
                   src={`/api/cert/${batchId}/${selectedRecipient.filename}`}
                   alt={`${getDisplayName(selectedRecipient.row)}'s Certificate`}
@@ -289,7 +288,7 @@ function DownloadPortalPage() {
                 <div className="text-xs text-slate-400">
                   Securely served, officially verified certificate
                 </div>
-                
+
                 <Button
                   className="w-full sm:w-auto font-medium shadow-lg shadow-primary/20"
                   asChild

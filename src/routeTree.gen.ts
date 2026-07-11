@@ -11,6 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DownloadBatchIdRouteImport } from './routes/download.$batchId'
+import { Route as ApiUploadRouteImport } from './routes/api.upload'
+import { Route as ApiCertBatchIdFilenameRouteImport } from './routes/api.cert.$batchId.$filename'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -22,31 +25,74 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DownloadBatchIdRoute = DownloadBatchIdRouteImport.update({
+  id: '/download/$batchId',
+  path: '/download/$batchId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCertBatchIdFilenameRoute = ApiCertBatchIdFilenameRouteImport.update({
+  id: '/api/cert/$batchId/$filename',
+  path: '/api/cert/$batchId/$filename',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/upload': typeof ApiUploadRoute
+  '/download/$batchId': typeof DownloadBatchIdRoute
+  '/api/cert/$batchId/$filename': typeof ApiCertBatchIdFilenameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/upload': typeof ApiUploadRoute
+  '/download/$batchId': typeof DownloadBatchIdRoute
+  '/api/cert/$batchId/$filename': typeof ApiCertBatchIdFilenameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/upload': typeof ApiUploadRoute
+  '/download/$batchId': typeof DownloadBatchIdRoute
+  '/api/cert/$batchId/$filename': typeof ApiCertBatchIdFilenameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sitemap.xml'
+  fullPaths:
+    | '/'
+    | '/sitemap.xml'
+    | '/api/upload'
+    | '/download/$batchId'
+    | '/api/cert/$batchId/$filename'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sitemap.xml'
-  id: '__root__' | '/' | '/sitemap.xml'
+  to:
+    | '/'
+    | '/sitemap.xml'
+    | '/api/upload'
+    | '/download/$batchId'
+    | '/api/cert/$batchId/$filename'
+  id:
+    | '__root__'
+    | '/'
+    | '/sitemap.xml'
+    | '/api/upload'
+    | '/download/$batchId'
+    | '/api/cert/$batchId/$filename'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiUploadRoute: typeof ApiUploadRoute
+  DownloadBatchIdRoute: typeof DownloadBatchIdRoute
+  ApiCertBatchIdFilenameRoute: typeof ApiCertBatchIdFilenameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +111,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/download/$batchId': {
+      id: '/download/$batchId'
+      path: '/download/$batchId'
+      fullPath: '/download/$batchId'
+      preLoaderRoute: typeof DownloadBatchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cert/$batchId/$filename': {
+      id: '/api/cert/$batchId/$filename'
+      path: '/api/cert/$batchId/$filename'
+      fullPath: '/api/cert/$batchId/$filename'
+      preLoaderRoute: typeof ApiCertBatchIdFilenameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiUploadRoute: ApiUploadRoute,
+  DownloadBatchIdRoute: DownloadBatchIdRoute,
+  ApiCertBatchIdFilenameRoute: ApiCertBatchIdFilenameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
