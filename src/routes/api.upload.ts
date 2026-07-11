@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import fs from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
+import { randomUUID } from "node:crypto";
 
 export const Route = createFileRoute("/api/upload")({
   server: {
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/api/upload")({
           }
 
           // Generate unique batch ID
-          const batchId = globalThis.crypto.randomUUID();
+          const batchId = randomUUID();
           
           // Define directory structure
           const uploadsDir = path.resolve("./uploads");
