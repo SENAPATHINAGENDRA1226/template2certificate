@@ -1,4 +1,5 @@
 export interface LoadedTemplate {
+  name: string;
   dataUrl: string;
   width: number;
   height: number;
@@ -12,7 +13,7 @@ function loadImageFile(file: File): Promise<LoadedTemplate> {
       const dataUrl = reader.result as string;
       const img = new Image();
       img.onload = () =>
-        resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+        resolve({ name: file.name, dataUrl, width: img.naturalWidth, height: img.naturalHeight });
       img.onerror = () => reject(new Error("Could not read image."));
       img.src = dataUrl;
     };
@@ -36,7 +37,7 @@ async function loadPdfFile(file: File): Promise<LoadedTemplate> {
   canvas.height = Math.floor(viewport.height);
   const ctx = canvas.getContext("2d")!;
   await page.render({ canvas, canvasContext: ctx, viewport } as never).promise;
-  return { dataUrl: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
+  return { name: file.name, dataUrl: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height };
 }
 
 export async function loadTemplate(file: File): Promise<LoadedTemplate> {

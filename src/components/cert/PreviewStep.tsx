@@ -11,13 +11,14 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { getTemplateImage, drawCertificate, sanitizeFilename } from "@/lib/render-cert";
-import { downloadSingle, generateZipOnTheFly, generatePdfOnTheFly } from "@/lib/export-cert";
+import { downloadSingle, generateZipOnTheFly, generatePdfOnTheFly, generateZipBlob } from "@/lib/export-cert";
 import type { LoadedTemplate } from "@/lib/template-loader";
 import type { ParsedData } from "@/lib/data-loader";
 import type { Placeholder } from "@/lib/cert-types";
@@ -40,6 +41,10 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
   const [exportType, setExportType] = useState<"zip" | "pdf" | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportCurrent, setExportCurrent] = useState(0);
+
+  const [sharing, setSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [recipients, setRecipients] = useState<{ row: Record<string, string>; filename: string }[]>([]);
 
   const totalCerts = data.rows.length;
 
@@ -120,6 +125,76 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
     } finally {
+      setExporting(false);
+      setExportType(null);
+    }
+  }
+
+  async function handlePublishPortal() {
+    setSharing(true);
+    setExporting(true);
+    setExportType("zip");
+    setExportProgress(0);
+    setExportCurrent(0);
+    setShareUrl(null);
+    try {
+      const zipBlob = await generateZipBlob(
+        template,
+        data,
+        placeholders,
+        mapping,
+        filenameColumn,
+        (current, total) => {
+          setExportCurrent(current);
+          setExportProgress(Math.round((current / total) * 100));
+        }
+      );
+
+      const seen = new Map<string, number>();
+      const calculatedRecipients = data.rows.map((row, i) => {
+        const rawFilename = sanitizeFilename(row[filenameColumn] ?? "", `certificate_${i + 1}`);
+        let filename = rawFilename;
+        const n = seen.get(filename) ?? 0;
+        if (n > 0) filename = `${filename}_${n + 1}`;
+        seen.set(rawFilename, n + 1);
+        return {
+          row,
+          filename: `${filename}.png`,
+        };
+      });
+
+      const metadata = {
+        templateName: template.name,
+        filenameColumn,
+        recipients: calculatedRecipients,
+        total: calculatedRecipients.length,
+        createdAt: new Date().toISOString(),
+      };
+
+      const formData = new FormData();
+      formData.append("zip", zipBlob, "certificates.zip");
+      formData.append("metadata", JSON.stringify(metadata));
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload certificates to the server.");
+      }
+
+      const result = await response.json();
+      const batchId = result.batchId;
+      const portalUrl = `${window.location.origin}/download/${batchId}`;
+      
+      setShareUrl(portalUrl);
+      setRecipients(calculatedRecipients);
+      toast.success("Shareable certificate portal created!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sharing failed");
+    } finally {
+      setSharing(false);
       setExporting(false);
       setExportType(null);
     }
@@ -274,12 +349,31 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
             </div>
           </Card>
 
+          <Card className="p-4 space-y-4 border-primary/20 bg-primary/[0.02]">
+            <h3 className="font-semibold text-sm uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <Globe className="h-4 w-4" /> Share & Hosting
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Publish a secure, shareable portal. Each recipient will be able to search and download their own certificate individually.
+            </p>
+
+            <div className="space-y-2 pt-2">
+              <Button
+                className="w-full justify-start"
+                disabled={exporting}
+                onClick={handlePublishPortal}
+              >
+                <Globe className="mr-2 h-4 w-4" /> Publish Shareable Portal
+              </Button>
+            </div>
+          </Card>
+
           {exporting && (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium flex items-center gap-1.5">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  Generating {exportType === "zip" ? "ZIP" : "PDF"}...
+                  {sharing ? "Uploading certificates..." : `Generating ${exportType === "zip" ? "ZIP" : "PDF"}...`}
                 </span>
                 <span className="text-muted-foreground">
                   {exportCurrent} / {totalCerts}
@@ -289,6 +383,79 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
               <p className="text-[10px] text-muted-foreground text-center">
                 Please keep this tab open during generation.
               </p>
+            </Card>
+          )}
+
+          {shareUrl && (
+            <Card className="p-4 border-green-500/30 bg-green-500/[0.02] space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <h3 className="font-semibold text-sm uppercase tracking-wider text-green-600 dark:text-green-400">
+                  Live Sharing Portal
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your certificate portal is live! Share this URL with your recipients so they can search and download their own certificate:
+              </p>
+              
+              <div className="flex items-center gap-2">
+                <Input
+                  value={shareUrl}
+                  readOnly
+                  className="h-9 text-xs bg-background border-muted font-mono"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl);
+                    toast.success("Portal link copied to clipboard!");
+                  }}
+                  className="flex-shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
+
+              {/* Scrollable list of individual copy links */}
+              <div className="space-y-2 pt-2 border-t border-border">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Individual Recipient Links
+                </h4>
+                <div className="max-h-[200px] overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
+                  {recipients.map((recipient, i) => {
+                    const name = recipient.row[filenameColumn] || `Recipient ${i + 1}`;
+                    const rawUrl = `${shareUrl}?search=${encodeURIComponent(name)}`;
+                    const directUrl = `${window.location.origin}/api/cert/${shareUrl.split('/').pop()}/${recipient.filename}`;
+                    return (
+                      <div key={i} className="flex items-center justify-between py-1.5 text-xs first:pt-0">
+                        <span className="truncate pr-2 font-medium text-slate-700 dark:text-slate-300">{name}</span>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(rawUrl);
+                              toast.success(`Search link copied for ${name}`);
+                            }}
+                            className="h-7 rounded-md px-2 text-[10px] text-primary hover:bg-primary/10"
+                          >
+                            Copy Search Link
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(directUrl);
+                              toast.success(`Direct download link copied for ${name}`);
+                            }}
+                            className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:bg-muted"
+                          >
+                            Direct Link
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </Card>
           )}
         </div>

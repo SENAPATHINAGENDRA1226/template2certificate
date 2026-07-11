@@ -56,14 +56,14 @@ export function downloadCombinedPdf(certs: GeneratedCert[]) {
   pdf.save("certificates.pdf");
 }
 
-export async function generateZipOnTheFly(
+export async function generateZipBlob(
   template: LoadedTemplate,
   data: ParsedData,
   placeholders: Placeholder[],
   mapping: Record<string, string>,
   filenameColumn: string,
   onProgress: (current: number, total: number) => void
-) {
+): Promise<Blob> {
   const zip = new JSZip();
   const seen = new Map<string, number>();
   const img = await getTemplateImage(template.dataUrl);
@@ -96,7 +96,25 @@ export async function generateZipOnTheFly(
     }
   }
 
-  const zipBlob = await zip.generateAsync({ type: "blob" });
+  return await zip.generateAsync({ type: "blob" });
+}
+
+export async function generateZipOnTheFly(
+  template: LoadedTemplate,
+  data: ParsedData,
+  placeholders: Placeholder[],
+  mapping: Record<string, string>,
+  filenameColumn: string,
+  onProgress: (current: number, total: number) => void
+) {
+  const zipBlob = await generateZipBlob(
+    template,
+    data,
+    placeholders,
+    mapping,
+    filenameColumn,
+    onProgress
+  );
   saveAs(zipBlob, "certificates.zip");
 }
 
