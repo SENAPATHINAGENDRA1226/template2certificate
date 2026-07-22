@@ -9,13 +9,18 @@ import {
   ExternalLink,
   Loader2,
   FileWarning,
-  Share2,
+  FileArchive,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { Progress } from "@/components/ui/progress";
+import { getTemplateImage, drawCertificate } from "@/lib/render-cert";
+import { generateZipBlob, generatePdfOnTheFly } from "@/lib/export-cert";
+import type { Placeholder } from "@/lib/cert-types";
 
 interface Recipient {
   row: Record<string, string>;
@@ -28,6 +33,8 @@ interface BatchMetadata {
   recipients: Recipient[];
   total: number;
   createdAt: string;
+  placeholders: Placeholder[];
+  mapping: Record<string, string>;
 }
 
 export const Route = createFileRoute("/download/$batchId")({
@@ -45,6 +52,15 @@ function DownloadPortalPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
 
+  const [templateImage, setTemplateImage] = useState<HTMLImageElement | null>(null);
+  const [activeDataUrl, setActiveDataUrl] = useState<string | null>(null);
+  const [rendering, setRendering] = useState(false);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportType, setExportType] = useState<"zip" | "pdf" | null>(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportCurrent, setExportCurrent] = useState(0);
+
   // Fetch metadata on mount
   useEffect(() => {
     async function fetchMetadata() {
@@ -61,10 +77,34 @@ function DownloadPortalPage() {
         const data = (await response.json()) as BatchMetadata;
         setMetadata(data);
 
-        // Pre-select if only one recipient
-        if (data.recipients && data.recipients.length === 1) {
-          setSelectedRecipient(data.recipients[0]);
+        // Pre-load the template image from the server
+        const templateUrl = `/api/cert/${batchId}/template.png`;
+        const img = await getTemplateImage(templateUrl);
+        setTemplateImage(img);
+
+        // Read search query parameter from URL on mount
+        const params = new URLSearchParams(window.location.search);
+        const searchParam = params.get("search");
+        
+        let initialRecipient: Recipient | null = null;
+        if (searchParam && data.recipients) {
+          const cleanSearch = searchParam.toLowerCase().trim();
+          // Initialize search input
+          setSearchQuery(searchParam);
+          
+          const matches = data.recipients.filter((r) =>
+            Object.values(r.row).some((val) =>
+              String(val).toLowerCase().includes(cleanSearch)
+            )
+          );
+          if (matches.length > 0) {
+            initialRecipient = matches[0];
+          }
+        } else if (data.recipients && data.recipients.length === 1) {
+          initialRecipient = data.recipients[0];
         }
+        
+        setSelectedRecipient(initialRecipient);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
       } finally {
@@ -75,12 +115,48 @@ function DownloadPortalPage() {
     fetchMetadata();
   }, [batchId]);
 
+  // Render certificate on-the-fly when recipient is selected
+  useEffect(() => {
+    if (!templateImage || !selectedRecipient || !metadata) {
+      setActiveDataUrl(null);
+      return;
+    }
+
+    let active = true;
+    async function renderCert() {
+      setRendering(true);
+      setImageLoading(true);
+      try {
+        const canvas = document.createElement("canvas");
+        const values: Record<string, string> = {};
+        for (const p of metadata.placeholders) {
+          const col = metadata.mapping[p.id];
+          values[p.id] = col ? selectedRecipient.row[col] ?? "" : p.sample;
+        }
+        drawCertificate(canvas, templateImage, metadata.placeholders, values);
+        if (active) {
+          setActiveDataUrl(canvas.toDataURL("image/png"));
+          setImageLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to render certificate:", err);
+        toast.error("Failed to render certificate preview");
+      } finally {
+        if (active) setRendering(false);
+      }
+    }
+
+    renderCert();
+    return () => {
+      active = false;
+    };
+  }, [templateImage, selectedRecipient, metadata]);
+
   // Filter recipients based on query
   const filteredRecipients = useMemo(() => {
     if (!metadata || !searchQuery.trim()) return [];
     const query = searchQuery.toLowerCase().trim();
     return metadata.recipients.filter((r) => {
-      // Search in all row values (e.g. name, email, company, etc.)
       return Object.values(r.row).some((val) =>
         String(val).toLowerCase().includes(query)
       );
@@ -88,16 +164,15 @@ function DownloadPortalPage() {
   }, [metadata, searchQuery]);
 
   const handleCopyLink = (recipient: Recipient) => {
-    const url = `${window.location.origin}/api/cert/${batchId}/${recipient.filename}`;
+    const url = `${window.location.origin}/download/${batchId}?search=${encodeURIComponent(getDisplayName(recipient.row))}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    toast.success("Direct certificate image link copied!");
+    toast.success("Certificate shareable link copied!");
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleSelectRecipient = (recipient: Recipient) => {
     setSelectedRecipient(recipient);
-    setImageLoading(true);
   };
 
   // Try to find recipient's primary display name
@@ -111,10 +186,87 @@ function DownloadPortalPage() {
         return row[foundKey];
       }
     }
-    // Fallback to first column value
     const values = Object.values(row);
     return values[0] || "Recipient";
   };
+
+  async function handleExportZip() {
+    if (!metadata || !templateImage) return;
+    setExporting(true);
+    setExportType("zip");
+    setExportProgress(0);
+    setExportCurrent(0);
+    try {
+      const loadedTemplate = {
+        name: metadata.templateName,
+        dataUrl: `/api/cert/${batchId}/template.png`,
+        width: templateImage.naturalWidth,
+        height: templateImage.naturalHeight,
+      };
+      const parsedData = {
+        rows: metadata.recipients.map(r => r.row),
+        headers: Object.keys(metadata.recipients[0]?.row ?? {}),
+      };
+      
+      const zipBlob = await generateZipBlob(
+        loadedTemplate,
+        parsedData,
+        metadata.placeholders,
+        metadata.mapping,
+        metadata.filenameColumn,
+        (current, total) => {
+          setExportCurrent(current);
+          setExportProgress(Math.round((current / total) * 100));
+        }
+      );
+      
+      const { default: pkg } = await import("file-saver");
+      pkg.saveAs(zipBlob, `${metadata.templateName || "certificates"}_bulk.zip`);
+      toast.success("ZIP downloaded successfully!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+      setExportType(null);
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!metadata || !templateImage) return;
+    setExporting(true);
+    setExportType("pdf");
+    setExportProgress(0);
+    setExportCurrent(0);
+    try {
+      const loadedTemplate = {
+        name: metadata.templateName,
+        dataUrl: `/api/cert/${batchId}/template.png`,
+        width: templateImage.naturalWidth,
+        height: templateImage.naturalHeight,
+      };
+      const parsedData = {
+        rows: metadata.recipients.map(r => r.row),
+        headers: Object.keys(metadata.recipients[0]?.row ?? {}),
+      };
+
+      await generatePdfOnTheFly(
+        loadedTemplate,
+        parsedData,
+        metadata.placeholders,
+        metadata.mapping,
+        (current, total) => {
+          setExportCurrent(current);
+          setExportProgress(Math.round((current / total) * 100));
+        }
+      );
+      toast.success("PDF downloaded successfully!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+      setExportType(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -240,6 +392,60 @@ function DownloadPortalPage() {
               </Card>
             )
           )}
+
+          {/* Bulk Download Card */}
+          {metadata && (
+            <Card className="border-slate-800/80 bg-slate-900/30 backdrop-blur-xl">
+              <CardHeader className="py-3 px-4 border-b border-slate-800/40">
+                <CardTitle className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileArchive className="h-3.5 w-3.5" /> Bulk Certificates
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Download all {metadata.total} certificates generated in this batch at once.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center border-slate-800 hover:bg-slate-950 hover:text-white"
+                    disabled={exporting}
+                    onClick={handleExportZip}
+                  >
+                    <FileArchive className="mr-1.5 h-3.5 w-3.5" /> ZIP (PNGs)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center border-slate-800 hover:bg-slate-950 hover:text-white"
+                    disabled={exporting}
+                    onClick={handleExportPdf}
+                  >
+                    <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {exporting && (
+            <Card className="p-4 space-y-3 border-slate-800/80 bg-slate-900/30 backdrop-blur-xl">
+              <div className="flex items-center justify-between text-xs text-slate-300">
+                <span className="font-medium flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  Generating {exportType === "zip" ? "ZIP" : "PDF"}...
+                </span>
+                <span className="text-slate-400">
+                  {exportCurrent} / {metadata?.total}
+                </span>
+              </div>
+              <Progress value={exportProgress} className="h-1.5" />
+              <p className="text-[10px] text-slate-500 text-center">
+                Please keep this tab open during generation.
+              </p>
+            </Card>
+          )}
         </div>
 
         {/* Right Side: Preview & Download Card (col-span-7) */}
@@ -275,13 +481,17 @@ function DownloadPortalPage() {
                   </div>
                 )}
 
-                <img
-                  src={`/api/cert/${batchId}/${selectedRecipient.filename}`}
-                  alt={`${getDisplayName(selectedRecipient.row)}'s Certificate`}
-                  className="max-h-[50vh] w-auto max-w-full rounded-md shadow-2xl border border-slate-800/60"
-                  onLoad={() => setImageLoading(false)}
-                  onError={() => setImageLoading(false)}
-                />
+                {activeDataUrl ? (
+                  <img
+                    src={activeDataUrl}
+                    alt={`${getDisplayName(selectedRecipient.row)}'s Certificate`}
+                    className="max-h-[50vh] w-auto max-w-full rounded-md shadow-2xl border border-slate-800/60"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-slate-500">
+                    <p className="text-xs">No preview loaded</p>
+                  </div>
+                )}
               </CardContent>
 
               <CardFooter className="border-t border-slate-800/50 bg-slate-950/80 p-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -292,9 +502,10 @@ function DownloadPortalPage() {
                 <Button
                   className="w-full sm:w-auto font-medium shadow-lg shadow-primary/20"
                   asChild
+                  disabled={!activeDataUrl}
                 >
                   <a
-                    href={`/api/cert/${batchId}/${selectedRecipient.filename}`}
+                    href={activeDataUrl ?? "#"}
                     download={selectedRecipient.filename}
                   >
                     <Download className="mr-2 h-4 w-4" />

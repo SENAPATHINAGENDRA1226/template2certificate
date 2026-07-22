@@ -13,12 +13,12 @@ export const Route = createFileRoute("/api/upload")({
           console.log(`[API Upload] Incoming upload payload size: ${contentLength ? (parseInt(contentLength) / (1024 * 1024)).toFixed(2) : "unknown"} MB`);
 
           const formData = await request.formData();
-          const zipFile = formData.get("zip") as File | null;
+          const templateFile = formData.get("template") as File | null;
           const metadataStr = formData.get("metadata") as string | null;
 
-          if (!zipFile || !metadataStr) {
+          if (!templateFile || !metadataStr) {
             return new Response(
-              JSON.stringify({ error: "Missing zip file or metadata" }),
+              JSON.stringify({ error: "Missing template file or metadata" }),
               { status: 400, headers: { "Content-Type": "application/json" } }
             );
           }
@@ -39,19 +39,10 @@ export const Route = createFileRoute("/api/upload")({
           // Save metadata.json
           fs.writeFileSync(path.join(batchDir, "metadata.json"), metadataStr);
 
-          // Extract files from the zip
-          const arrayBuffer = await zipFile.arrayBuffer();
+          // Save the template file
+          const arrayBuffer = await templateFile.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-          const zip = await JSZip.loadAsync(buffer);
-
-          for (const [filename, fileObj] of Object.entries(zip.files)) {
-            if (!fileObj.dir) {
-              const fileContent = await fileObj.async("nodebuffer");
-              // Prevent directory traversal attacks by taking only the file base name
-              const safeFilename = path.basename(filename);
-              fs.writeFileSync(path.join(batchDir, safeFilename), fileContent);
-            }
-          }
+          fs.writeFileSync(path.join(batchDir, "template.png"), buffer);
 
           return new Response(
             JSON.stringify({ success: true, batchId }),

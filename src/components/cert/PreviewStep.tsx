@@ -134,22 +134,10 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
     setSharing(true);
     setExporting(true);
     setExportType("zip");
-    setExportProgress(0);
+    setExportProgress(10);
     setExportCurrent(0);
     setShareUrl(null);
     try {
-      const zipBlob = await generateZipBlob(
-        template,
-        data,
-        placeholders,
-        mapping,
-        filenameColumn,
-        (current, total) => {
-          setExportCurrent(current);
-          setExportProgress(Math.round((current / total) * 100));
-        }
-      );
-
       const seen = new Map<string, number>();
       const calculatedRecipients = data.rows.map((row, i) => {
         const rawFilename = sanitizeFilename(row[filenameColumn] ?? "", `certificate_${i + 1}`);
@@ -169,11 +157,25 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
         recipients: calculatedRecipients,
         total: calculatedRecipients.length,
         createdAt: new Date().toISOString(),
+        placeholders,
+        mapping,
       };
 
+      setExportProgress(40);
+
+      // Convert template dataUrl to a blob
+      const [head, body] = template.dataUrl.split(",");
+      const mime = head.match(/:(.*?);/)?.[1] ?? "image/png";
+      const bin = atob(body);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const templateBlob = new Blob([arr], { type: mime });
+
       const formData = new FormData();
-      formData.append("zip", zipBlob, "certificates.zip");
+      formData.append("template", templateBlob, "template.png");
       formData.append("metadata", JSON.stringify(metadata));
+
+      setExportProgress(75);
 
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -190,6 +192,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
 
       setShareUrl(portalUrl);
       setRecipients(calculatedRecipients);
+      setExportProgress(100);
       toast.success("Shareable certificate portal created!");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sharing failed");
@@ -238,7 +241,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Left pane: Active preview & Pagination */}
         <div className="space-y-4">
-          <Card className="relative flex min-h-[300px] flex-col items-center justify-center overflow-hidden bg-muted p-6">
+          <Card className="relative flex min-h-75 flex-col items-center justify-center overflow-hidden bg-muted p-6">
             {rendering && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/60 backdrop-blur-xs">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -421,36 +424,23 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Individual Recipient Links
                 </h4>
-                <div className="max-h-[200px] overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
+                <div className="max-h-50 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
                   {recipients.map((recipient, i) => {
                     const name = recipient.row[filenameColumn] || `Recipient ${i + 1}`;
                     const rawUrl = `${shareUrl}?search=${encodeURIComponent(name)}`;
-                    const directUrl = `${window.location.origin}/api/cert/${shareUrl.split('/').pop()}/${recipient.filename}`;
                     return (
                       <div key={i} className="flex items-center justify-between py-1.5 text-xs first:pt-0">
                         <span className="truncate pr-2 font-medium text-slate-700 dark:text-slate-300">{name}</span>
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              navigator.clipboard.writeText(rawUrl);
-                              toast.success(`Search link copied for ${name}`);
-                            }}
-                            className="h-7 rounded-md px-2 text-[10px] text-primary hover:bg-primary/10"
-                          >
-                            Copy Search Link
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              navigator.clipboard.writeText(directUrl);
-                              toast.success(`Direct download link copied for ${name}`);
-                            }}
-                            className="h-7 rounded-md px-2 text-[10px] text-muted-foreground hover:bg-muted"
-                          >
-                            Direct Link
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText(rawUrl);
+                            toast.success(`Share link copied for ${name}`);
+                          }}
+                          className="h-7 rounded-md px-2 text-[10px] text-primary hover:bg-primary/10"
+                        >
+                          Copy Share Link
+                        </Button>
                       </div>
                     );
                   })}
