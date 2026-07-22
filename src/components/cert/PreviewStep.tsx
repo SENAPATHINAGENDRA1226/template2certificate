@@ -147,8 +147,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
         (current, total) => {
           setExportCurrent(current);
           setExportProgress(Math.round((current / total) * 100));
-        },
-        "jpeg"
+        }
       );
 
       const seen = new Map<string, number>();
@@ -160,7 +159,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
         seen.set(rawFilename, n + 1);
         return {
           row,
-          filename: `${filename}.jpg`,
+          filename: `${filename}.png`,
         };
       });
 
@@ -188,7 +187,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
       const result = await response.json();
       const batchId = result.batchId;
       const portalUrl = `${window.location.origin}/download/${batchId}`;
-      
+
       setShareUrl(portalUrl);
       setRecipients(calculatedRecipients);
       toast.success("Shareable certificate portal created!");
@@ -350,7 +349,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4 border-primary/20 bg-primary/[0.02]">
+          <Card className="p-4 space-y-4 border-primary/20 bg-primary/20000">
             <h3 className="font-semibold text-sm uppercase tracking-wider text-primary flex items-center gap-1.5">
               <Globe className="h-4 w-4" /> Share & Hosting
             </h3>
@@ -388,7 +387,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
           )}
 
           {shareUrl && (
-            <Card className="p-4 border-green-500/30 bg-green-500/[0.02] space-y-4">
+            <Card className="p-4 border-green-500/30 bg-green-500/2 space-y-4">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 <h3 className="font-semibold text-sm uppercase tracking-wider text-green-600 dark:text-green-400">
@@ -398,7 +397,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Your certificate portal is live! Share this URL with your recipients so they can search and download their own certificate:
               </p>
-              
+
               <div className="flex items-center gap-2">
                 <Input
                   value={shareUrl}
@@ -411,7 +410,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
                     navigator.clipboard.writeText(shareUrl);
                     toast.success("Portal link copied to clipboard!");
                   }}
-                  className="flex-shrink-0"
+                  className="shrink-0"
                 >
                   Copy
                 </Button>
@@ -430,7 +429,7 @@ export function PreviewStep({ template, data, placeholders, mapping, filenameCol
                     return (
                       <div key={i} className="flex items-center justify-between py-1.5 text-xs first:pt-0">
                         <span className="truncate pr-2 font-medium text-slate-700 dark:text-slate-300">{name}</span>
-                        <div className="flex gap-1 flex-shrink-0">
+                        <div className="flex gap-1 shrink-0">
                           <Button
                             variant="ghost"
                             onClick={() => {

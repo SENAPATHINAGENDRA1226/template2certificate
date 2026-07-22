@@ -149,7 +149,7 @@ function DownloadPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
       <Toaster richColors position="top-center" />
 
       {/* Header */}
@@ -209,8 +209,8 @@ function DownloadPortalPage() {
                         key={i}
                         onClick={() => handleSelectRecipient(recipient)}
                         className={`w-full text-left px-3 py-2.5 rounded-md transition-all flex items-center justify-between text-sm ${isSelected
-                            ? "bg-primary/20 text-white font-medium shadow-inner"
-                            : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                          ? "bg-primary/20 text-white font-medium shadow-inner"
+                          : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
                           }`}
                       >
                         <div className="truncate pr-2">
@@ -255,7 +255,7 @@ function DownloadPortalPage() {
                     Batch: {metadata?.templateName || "Verified Certificate"}
                   </CardDescription>
                 </div>
-                <div className="flex gap-1.5 flex-shrink-0">
+                <div className="flex gap-1.5 shrink-0">
                   <Button
                     variant="outline"
                     size="icon"
@@ -298,7 +298,7 @@ function DownloadPortalPage() {
                     download={selectedRecipient.filename}
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    Download Certificate
+                    Download PNG (High-Res)
                   </a>
                 </Button>
               </CardFooter>
