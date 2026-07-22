@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Award } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { StepIndicator } from "@/components/cert/StepIndicator";
 import { TemplateStep } from "@/components/cert/TemplateStep";
@@ -49,8 +48,8 @@ function Index() {
       <Toaster richColors position="top-center" />
       <header className="border-b bg-card/60 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Award className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-card border shadow-sm overflow-hidden">
+            <img src="/favicon.ico" alt="Logo" className="h-7 w-7 object-contain" />
           </div>
           <div>
             <h1 className="text-lg font-bold leading-tight">Certificate Generator</h1>

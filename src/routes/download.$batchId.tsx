@@ -316,8 +316,8 @@ function DownloadPortalPage() {
       <header className="border-b border-slate-800/60 bg-slate-950/40 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <Award className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 shadow-lg overflow-hidden">
+              <img src="/favicon.ico" alt="Logo" className="h-7 w-7 object-contain" />
             </div>
             <div>
               <h1 className="text-md font-bold tracking-tight">Certificate Portal</h1>
