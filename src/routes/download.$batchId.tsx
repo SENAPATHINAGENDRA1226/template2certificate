@@ -85,13 +85,13 @@ function DownloadPortalPage() {
         // Read search query parameter from URL on mount
         const params = new URLSearchParams(window.location.search);
         const searchParam = params.get("search");
-        
+
         let initialRecipient: Recipient | null = null;
         if (searchParam && data.recipients) {
           const cleanSearch = searchParam.toLowerCase().trim();
           // Initialize search input
           setSearchQuery(searchParam);
-          
+
           const matches = data.recipients.filter((r) =>
             Object.values(r.row).some((val) =>
               String(val).toLowerCase().includes(cleanSearch)
@@ -103,7 +103,7 @@ function DownloadPortalPage() {
         } else if (data.recipients && data.recipients.length === 1) {
           initialRecipient = data.recipients[0];
         }
-        
+
         setSelectedRecipient(initialRecipient);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -117,23 +117,31 @@ function DownloadPortalPage() {
 
   // Render certificate on-the-fly when recipient is selected
   useEffect(() => {
-    if (!templateImage || !selectedRecipient || !metadata) {
+    const currentMetadata = metadata;
+    const currentRecipient = selectedRecipient;
+    const currentTemplateImage = templateImage;
+
+    if (!currentTemplateImage || !currentRecipient || !currentMetadata) {
       setActiveDataUrl(null);
       return;
     }
 
     let active = true;
-    async function renderCert() {
+    async function renderCert(
+      img: HTMLImageElement,
+      recipient: Recipient,
+      meta: BatchMetadata
+    ) {
       setRendering(true);
       setImageLoading(true);
       try {
         const canvas = document.createElement("canvas");
         const values: Record<string, string> = {};
-        for (const p of metadata.placeholders) {
-          const col = metadata.mapping[p.id];
-          values[p.id] = col ? selectedRecipient.row[col] ?? "" : p.sample;
+        for (const p of meta.placeholders) {
+          const col = meta.mapping[p.id];
+          values[p.id] = col ? recipient.row[col] ?? "" : p.sample;
         }
-        drawCertificate(canvas, templateImage, metadata.placeholders, values);
+        drawCertificate(canvas, img, meta.placeholders, values);
         if (active) {
           setActiveDataUrl(canvas.toDataURL("image/png"));
           setImageLoading(false);
@@ -146,7 +154,7 @@ function DownloadPortalPage() {
       }
     }
 
-    renderCert();
+    renderCert(currentTemplateImage, currentRecipient, currentMetadata);
     return () => {
       active = false;
     };
@@ -207,7 +215,7 @@ function DownloadPortalPage() {
         rows: metadata.recipients.map(r => r.row),
         headers: Object.keys(metadata.recipients[0]?.row ?? {}),
       };
-      
+
       const zipBlob = await generateZipBlob(
         loadedTemplate,
         parsedData,
@@ -219,7 +227,7 @@ function DownloadPortalPage() {
           setExportProgress(Math.round((current / total) * 100));
         }
       );
-      
+
       const { default: pkg } = await import("file-saver");
       pkg.saveAs(zipBlob, `${metadata.templateName || "certificates"}_bulk.zip`);
       toast.success("ZIP downloaded successfully!");
@@ -351,7 +359,7 @@ function DownloadPortalPage() {
                   Matches ({filteredRecipients.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-2 max-h-[350px] overflow-y-auto divide-y divide-slate-800/30">
+              <CardContent className="p-2 max-h-87.5 overflow-y-auto divide-y divide-slate-800/30">
                 {filteredRecipients.length > 0 ? (
                   filteredRecipients.map((recipient, i) => {
                     const isSelected = selectedRecipient?.filename === recipient.filename;
@@ -474,7 +482,7 @@ function DownloadPortalPage() {
                 </div>
               </CardHeader>
 
-              <CardContent className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-900/20 relative min-h-[300px]">
+              <CardContent className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-900/20 relative min-h-75">
                 {imageLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs z-10">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -515,7 +523,7 @@ function DownloadPortalPage() {
               </CardFooter>
             </Card>
           ) : (
-            <div className="flex-1 min-h-[350px] flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/10 p-8 text-center">
+            <div className="flex-1 min-h-87.5 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/10 p-8 text-center">
               <Award className="h-16 w-16 text-slate-700 stroke-[1.25] mb-4" />
               <h3 className="text-lg font-medium text-slate-300">No Certificate Selected</h3>
               <p className="mt-2 text-sm text-slate-500 max-w-md leading-relaxed">
